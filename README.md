@@ -4,11 +4,11 @@
 
 ### In process
 
-![In process]()
+![In process](https://github.com/kas-cor/console-progress-bar/raw/master/in_process.png)
 
 ### Finish report
 
-![Finish report]()
+![Finish report](https://github.com/kas-cor/console-progress-bar/raw/master/finish_report.png)
 
 ## Install
 
