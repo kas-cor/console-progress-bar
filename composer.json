@@ -1,0 +1,23 @@
+{
+  "name": "kas-cor/console-progress-bar",
+  "type": "library",
+  "description": "Console progress bar",
+  "keywords": ["console", "progress", "bar"],
+  "homepage": "https://github.com/kas-cor/console-progress-bar",
+  "license": "MIT",
+  "version": "0.0.1",
+  "authors": [
+    {
+      "name": "kas-cor",
+      "email": "kascorp@gmail.com"
+    }
+  ],
+  "require": {
+    "php": ">=7.2.0"
+  },
+    "autoload": {
+        "psr-4": {
+            "KasCor\\": "src"
+        }
+    }
+}
