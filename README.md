@@ -48,21 +48,20 @@ foreach (range(1, 5) as $current_position) {
 
 ### Config
 
-| Property | Default | Description |
-|---|---|---|
-| showTimeMessage | True | Show time before message |
-| showBar | True | Show progress bar |
-| showCurrentPosition | True | Show current position |
-| showSpinner | True | Show spinner |
-| showPercent | True | Show percent progress |
-| showPassedTime | True | Show passed time |
-| showEstimatedTime | True | Show estimated time |
-| showFinishReport | True | Show finish report |
-| timeMessageFormat | d.m.Y H:i:s | Format date/time before message, PHP format |
-| progressBarSize | 50 | Size progress bar |
-| progressBarFullChar | # | Char full in progress bar |
-| progressBarEmptyChar | . | Char empty in progress bar |
-| spinnerChars |  | Chars spinner animation |
-| separator | - | Separator elements |
-| orderElements | spinner, progress_bar, current_position, percent, passed_time, estimated_time | Order elements |
-
+| Property | Type | Description | Default |
+|---|---|---|---|
+| showTimeMessage | boolean | Show time before message | True |
+| showBar | boolean | Show progress bar | True |
+| showCurrentPosition | boolean | Show current position | True |
+| showSpinner | boolean | Show spinner | True |
+| showPercent | boolean | Show percent progress | True |
+| showPassedTime | boolean | Show passed time | True |
+| showEstimatedTime | boolean | Show estimated time | True |
+| showFinishReport | boolean | Show finish report | True |
+| timeMessageFormat | string | Format date/time before message, PHP format | d.m.Y H:i:s |
+| progressBarSize | integer | Size progress bar | 50 |
+| progressBarFullChar | string | Char full in progress bar | # |
+| progressBarEmptyChar | string | Char empty in progress bar | . |
+| spinnerChars | array | Chars spinner animation |  |
+| separator | string | Separator elements | - |
+| orderElements | array | Order elements |  spinner, progress_bar, current_position, percent, passed_time, estimated_time |
