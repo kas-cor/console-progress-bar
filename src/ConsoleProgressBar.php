@@ -6,6 +6,8 @@ use RuntimeException;
 
 /**
  * Class ConsoleProgressBar
+ * @author kas-cor
+ * @link https://github.com/kas-cor/console-progress-bar
  * @package KasCor
  */
 class ConsoleProgressBar
@@ -123,18 +125,18 @@ class ConsoleProgressBar
             }
         }
 
-        $this->limit = $limit;
+        $this->limit = $limit ?: 0.0000001;
         $this->startTime = microtime(true);
     }
 
     /**
      * Output to console
-     * @param int $currentPosition Current position in elements
+     * @param null|int $currentPosition Current position in elements
      * @param null|string $message Output message
      */
-    public function output($currentPosition, $message = null)
+    public function output($currentPosition = null, $message = null): void
     {
-        $this->currentPosition = $currentPosition;
+        $this->currentPosition = $currentPosition ?: $this->currentPosition;
 
         if ($message) {
             echo str_repeat(' ', $this->lastStringLength) . "\r";
@@ -152,8 +154,6 @@ class ConsoleProgressBar
             if ($this->showFinishReport) {
                 echo str_repeat(' ', $this->lastStringLength) . "\r";
                 echo $this->getReportString() . PHP_EOL;
-            } else {
-                echo PHP_EOL;
             }
         }
     }
@@ -162,7 +162,7 @@ class ConsoleProgressBar
      * Getting progress data
      * @return array
      */
-    public function getProgressData()
+    public function getProgressData(): array
     {
         $percent = $this->currentPosition / $this->limit * 100;
         $progress_time = microtime(true) - $this->startTime;
@@ -199,10 +199,19 @@ class ConsoleProgressBar
     }
 
     /**
+     * Output finish report
+     */
+    public function finishReport(): void
+    {
+        echo str_repeat(' ', $this->lastStringLength) . "\r";
+        echo $this->getReportString() . PHP_EOL;
+    }
+
+    /**
      * Getting progress bar string
      * @return string
      */
-    private function getProgressString()
+    private function getProgressString(): string
     {
         $progress = $this->getProgressData();
 
@@ -243,7 +252,7 @@ class ConsoleProgressBar
             }
         }
 
-        return implode($this->separator, $result);
+        return implode($this->separator, $result) . str_repeat(' ', 5);
     }
 
     /**
@@ -251,7 +260,7 @@ class ConsoleProgressBar
      * @param int $progressTime
      * @return string
      */
-    private function getTimeString($progressTime)
+    private function getTimeString($progressTime): string
     {
         $result = '';
         foreach (['day', 'hour', 'minute', 'second'] as $div) {
@@ -266,7 +275,7 @@ class ConsoleProgressBar
      * Getting finish report
      * @return string
      */
-    private function getReportString()
+    private function getReportString(): string
     {
         $progress = $this->getProgressData();
         $result = '=================' . PHP_EOL;
