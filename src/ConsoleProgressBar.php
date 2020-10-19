@@ -34,6 +34,11 @@ class ConsoleProgressBar
     private $lastStringLength;
 
     /**
+     * @var int Spinner counter
+     */
+    private $spinnerCounter = 0;
+
+    /**
      * @var bool Show time before message
      */
     public $showTimeMessage = true;
@@ -225,7 +230,7 @@ class ConsoleProgressBar
 
         $output = [];
         if ($this->showSpinner) {
-            $spinner = $this->currentPosition % count($this->spinnerChars);
+            $spinner = ++$this->spinnerCounter % count($this->spinnerChars);
             $output['spinner'] = $this->spinnerChars[$spinner];
         }
         if ($this->showBar) {
