@@ -208,6 +208,10 @@ $progressBar->finishReport(); // print manually
 ]
 ```
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on development workflow, coding standards, and pull request process.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).
