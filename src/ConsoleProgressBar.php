@@ -45,6 +45,9 @@ class ConsoleProgressBar
     /** @var int Counter for spinner animation cycle */
     private int $spinnerCounter = 0;
 
+    /** @var int Number of message lines printed (used for cursor positioning) */
+    private int $messageCount = 0;
+
     /** Size of the progress bar in characters */
     public int $progressBarSize = 50 {
         set(int $value) {
@@ -137,16 +140,21 @@ class ConsoleProgressBar
     {
         $this->currentPosition = $currentPosition ?? $this->currentPosition;
 
-        $result = '';
-
         if ($message) {
-            if ($this->showTimeMessage) {
-                $result .= \date($this->timeMessageFormat) . $this->separator;
+            if ($this->messageCount > 0) {
+                $this->output->write("\033[1L");
             }
-            $result .= $message . $this->separator;
+
+            $msg = '';
+            if ($this->showTimeMessage) {
+                $msg .= \date($this->timeMessageFormat) . $this->separator;
+            }
+            $msg .= $message;
+            $this->output->write($msg . "\n");
+            $this->messageCount++;
         }
 
-        $result .= $this->getProgressString();
+        $result = $this->getProgressString();
 
         if ($this->lastStringLength > 0) {
             $this->output->write(\str_repeat(' ', $this->lastStringLength) . "\r" . $result . "\r");
