@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-17
+
 ### Added
 - `OutputInterface` — pluggable output abstraction for the progress bar
 - `ConsoleOutput` — default output handler (writes to STDOUT)
@@ -27,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ConsoleOutput unit tests — `write()` and `writeln()` with edge cases
 - Coverage configuration (phpunit.xml `<source>` filter)
 - CHANGELOG.md with Keep a Changelog format
+- `AGENTS.md` — instruction file for OpenCode sessions
+- `README_ru.md` — Russian translation of README
+- `CONTRIBUTING.md` — contribution guidelines
 
 ### Changed
 - Constructor now accepts optional `OutputInterface` as third parameter
@@ -39,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed non-standard `@package` and `@author` PHPDoc tags
 - Updated README with OutputInterface documentation, methods reference, and requirements
 - PHPDoc `@var` removed from typed constants (types already declared in code)
+- Default branch renamed from `master` to `main`
+- CI workflow updated to trigger on `main` (with `workflow_dispatch`)
+- `LoggerOutput::write()` now trims and skips empty strings (filters `\r` clearing writes)
+- `progressBarSize` set hook throws `\InvalidArgumentException` on negative values
 
 ### Removed
 - Removed unused `use InvalidArgumentException` import from `CallbackOutput`
@@ -98,7 +107,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Customizable appearance (chars, size, separator, element order)
 - 11 example scripts
 
-[Unreleased]: https://github.com/kas-cor/console-progress-bar/compare/v0.0.7...HEAD
+[Unreleased]: https://github.com/kas-cor/console-progress-bar/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/kas-cor/console-progress-bar/compare/v0.0.7...v0.1.0
 [0.0.7]: https://github.com/kas-cor/console-progress-bar/compare/0.0.6...v0.0.7
 [0.0.6]: https://github.com/kas-cor/console-progress-bar/compare/0.0.5.1...0.0.6
 [0.0.5.1]: https://github.com/kas-cor/console-progress-bar/compare/0.0.5...0.0.5.1
