@@ -137,17 +137,22 @@ class ConsoleProgressBar
     {
         $this->currentPosition = $currentPosition ?? $this->currentPosition;
 
-        if ($message) {
-            $this->output->write(\str_repeat(' ', $this->lastStringLength) . "\r");
+        $result = '';
 
+        if ($message) {
             if ($this->showTimeMessage) {
-                $this->output->write(\date($this->timeMessageFormat) . $this->separator);
+                $result .= \date($this->timeMessageFormat) . $this->separator;
             }
-            $this->output->writeln($message);
+            $result .= $message . $this->separator;
         }
 
-        $result = $this->getProgressString();
-        $this->output->write($result . "\r");
+        $result .= $this->getProgressString();
+
+        if ($this->lastStringLength > 0) {
+            $this->output->write(\str_repeat(' ', $this->lastStringLength) . "\r" . $result . "\r");
+        } else {
+            $this->output->write($result . "\r");
+        }
         $this->lastStringLength = \mb_strlen($result);
 
         if ($this->currentPosition === (int) $this->limit) {
