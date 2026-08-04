@@ -41,6 +41,7 @@ class ConsoleProgressBar
     private int $currentPosition = 0;
     private int $lastStringLength = 0;
     private int $spinnerCounter = 0;
+    private ?float $finishTime = null;
 
     public bool $showTimeMessage = true;
     public bool $showBar = true;
@@ -54,10 +55,15 @@ class ConsoleProgressBar
     public int $progressBarSize = 50;
     public string $progressBarFullChar = '#';
     public string $progressBarEmptyChar = '.';
+    /** @var array<int, string> */
     public array $spinnerChars = ['-', '\\', '|', '/'];
     public string $separator = ' - ';
+    /** @var array<int, string> */
     public array $orderElements = ['spinner', 'progress_bar', 'current_position', 'percent', 'passed_time', 'estimated_time'];
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(int $limit, array $config = [])
     {
         if ($config) {
@@ -95,12 +101,16 @@ class ConsoleProgressBar
 
         if ($this->currentPosition >= $this->limit) {
             if ($this->showFinishReport) {
+                $this->finishTime = $this->finishTime ?? microtime(true);
                 echo str_repeat(' ', $this->lastStringLength) . "\r";
                 echo $this->getReportString() . PHP_EOL;
             }
         }
     }
 
+    /**
+     * @return array{limit: float, current_position: int, percent: float, passed_time: array{days: float, hours: float, minutes: float, seconds: float}, estimated_time: array{days: float, hours: float, minutes: float, seconds: float}}
+     */
     public function getProgressData(): array
     {
         $percent = $this->currentPosition / $this->limit * 100;
@@ -118,11 +128,12 @@ class ConsoleProgressBar
 
     public function finishReport(): void
     {
+        $this->finishTime = $this->finishTime ?? microtime(true);
         echo str_repeat(' ', $this->lastStringLength) . "\r";
         echo $this->getReportString() . PHP_EOL;
     }
 
-    private function getProgressString(): string
+    protected function getProgressString(): string
     {
         $progress = $this->getProgressData();
         $output = [];
@@ -160,12 +171,16 @@ class ConsoleProgressBar
         return implode($this->separator, $result) . str_repeat(' ', 5);
     }
 
-    private function getTimeString(array $progressTime): string
+    /**
+     * @param array{days: float, hours: float, minutes: float, seconds: float} $progressTime
+     */
+    protected function getTimeString(array $progressTime): string
     {
+        $abbreviations = ['day' => 'd', 'hour' => 'h', 'minute' => 'm', 'second' => 's'];
         $result = '';
-        foreach (['day', 'hour', 'minute', 'second'] as $div) {
+        foreach ($abbreviations as $div => $abbr) {
             $key = $div . 's';
-            $result .= ($progressTime[$key] ? $progressTime[$key] . $div[0] . ' ' : '');
+            $result .= ($progressTime[$key] ? $progressTime[$key] . $abbr . ' ' : '');
         }
 
         return trim($result);
@@ -176,14 +191,17 @@ class ConsoleProgressBar
         $progress = $this->getProgressData();
         $result = '=================' . PHP_EOL;
         $result .= 'Start: ' . date($this->timeMessageFormat, (int)$this->startTime) . PHP_EOL;
-        $result .= 'Finish: ' . date($this->timeMessageFormat) . PHP_EOL;
+        $result .= 'Finish: ' . date($this->timeMessageFormat, (int)($this->finishTime ?? microtime(true))) . PHP_EOL;
         $result .= 'Passed elements: ' . $this->currentPosition . PHP_EOL;
         $result .= 'Passed time: ' . $this->getTimeString($progress['passed_time']) . PHP_EOL;
 
         return $result;
     }
 
-    private function formatTime(float $time): array
+    /**
+     * @return array{days: float, hours: float, minutes: float, seconds: float}
+     */
+    protected function formatTime(float $time): array
     {
         $days = floor($time / self::SECONDS_IN_DAY);
         $time -= $days * self::SECONDS_IN_DAY;
