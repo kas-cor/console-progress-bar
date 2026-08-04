@@ -160,3 +160,14 @@ str_repeat(' ', $this->lastStringLength) очищает строку по дли
 4. `limit <= 0` бросает `InvalidArgumentException` вместо молчаливой подмены на `MIN_LIMIT`.
 
 Добавлены тесты на все 4 Critical (итого 8 тестов). phpunit 8/8 OK.
+- Добавлены конфиги PHPStan (level 6, без ошибок) и PHP-CS-Fixer; применено форматирование к примерам (все 11 теперь с `declare(strict_types=1)`).
+
+Закрытые Warnings: #5 (типобезопасность под strict_types — TypeError), #7 (убран composer-runtime-api), #9 (фиксируем реальное время завершения), #10 (конфиги PHPStan/CS-Fixer добавлены и проходят), #14 (переименован файл с опечаткой).
+
+Закрытые Suggestions: #12 (private → protected), #13 (явный mapping вместо `$div[0]`), #15 (declare(strict_types=1) во всех примерах).
+
+Оставлены на следующий релиз (требуют расширенного рефактора / не критичны):
+- Warning #8 — хардкод английских строк (локализация через конфиг);
+- Suggestion #11 — FUNDING.yml bit.ly (вне кода);
+- Suggestion #16 — очистка строки по длине прогресс-бара, а не сообщения;
+- Suggestion #17 — интерфейс ConsoleProgressBarInterface (для моков в тестах).
