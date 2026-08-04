@@ -14,10 +14,27 @@ use RuntimeException;
  */
 class ConsoleProgressBar
 {
-    private const MIN_LIMIT = 0.0000001;
     private const SECONDS_IN_MINUTE = 60;
     private const SECONDS_IN_HOUR = 3600;
     private const SECONDS_IN_DAY = 86400;
+    private const DEFAULT_SPINNER_CHARS = ['-', '\\', '|', '/'];
+    private const ALLOWED_CONFIG_KEYS = [
+        'showTimeMessage',
+        'showBar',
+        'showCurrentPosition',
+        'showSpinner',
+        'showPercent',
+        'showPassedTime',
+        'showEstimatedTime',
+        'showFinishReport',
+        'timeMessageFormat',
+        'progressBarSize',
+        'progressBarFullChar',
+        'progressBarEmptyChar',
+        'spinnerChars',
+        'separator',
+        'orderElements',
+    ];
 
     private float $startTime;
     private float $limit;
@@ -45,7 +62,7 @@ class ConsoleProgressBar
     {
         if ($config) {
             foreach ($config as $key => $value) {
-                if (property_exists(__CLASS__, $key)) {
+                if (in_array($key, self::ALLOWED_CONFIG_KEYS, true)) {
                     $this->$key = $value;
                 } else {
                     throw new RuntimeException('Config key "' . $key . '" not found!');
@@ -53,7 +70,10 @@ class ConsoleProgressBar
             }
         }
 
-        $this->limit = $limit ?: self::MIN_LIMIT;
+        if ($limit <= 0) {
+            throw new \InvalidArgumentException('Limit must be greater than 0');
+        }
+        $this->limit = $limit;
         $this->startTime = microtime(true);
     }
 
@@ -73,7 +93,7 @@ class ConsoleProgressBar
         echo $result . "\r";
         $this->lastStringLength = strlen($result);
 
-        if ($this->currentPosition === (int)$this->limit) {
+        if ($this->currentPosition >= $this->limit) {
             if ($this->showFinishReport) {
                 echo str_repeat(' ', $this->lastStringLength) . "\r";
                 echo $this->getReportString() . PHP_EOL;
@@ -108,8 +128,9 @@ class ConsoleProgressBar
         $output = [];
 
         if ($this->showSpinner) {
-            $spinner = ++$this->spinnerCounter % count($this->spinnerChars);
-            $output['spinner'] = $this->spinnerChars[$spinner];
+            $spinnerChars = $this->spinnerChars ?: self::DEFAULT_SPINNER_CHARS;
+            $spinner = ++$this->spinnerCounter % count($spinnerChars);
+            $output['spinner'] = $spinnerChars[$spinner];
         }
         if ($this->showBar) {
             $size = $progress['percent'] / 100 * $this->progressBarSize;
@@ -156,7 +177,7 @@ class ConsoleProgressBar
         $result = '=================' . PHP_EOL;
         $result .= 'Start: ' . date($this->timeMessageFormat, (int)$this->startTime) . PHP_EOL;
         $result .= 'Finish: ' . date($this->timeMessageFormat) . PHP_EOL;
-        $result .= 'Passed elements: ' . $this->limit . PHP_EOL;
+        $result .= 'Passed elements: ' . $this->currentPosition . PHP_EOL;
         $result .= 'Passed time: ' . $this->getTimeString($progress['passed_time']) . PHP_EOL;
 
         return $result;
