@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace KasCor\Tests;
 
+use InvalidArgumentException;
 use KasCor\ConsoleProgressBar;
 use KasCor\Output\CallbackOutput;
 use KasCor\Output\ConsoleOutput;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use RuntimeException;
 
 class ConsoleProgressBarTest extends TestCase
@@ -105,17 +107,6 @@ class ConsoleProgressBarTest extends TestCase
     // Edge cases for limit parameter
     // ====================================================
 
-    public function testLimitZeroUsesMinLimit(): void
-    {
-        $captured = '';
-        $bar = new ConsoleProgressBar(0, [], new CallbackOutput(function (string $t) use (&$captured): void {
-            $captured .= $t;
-        }));
-        $bar->output(0);
-        // With MIN_LIMIT = 0.0000001, currentPosition=0 should give 0%
-        $this->assertStringContainsString('0.00%', $captured);
-    }
-
     public function testLimitOne(): void
     {
         $captured = '';
@@ -136,20 +127,6 @@ class ConsoleProgressBarTest extends TestCase
         $bar->output(50000);
         $this->assertStringContainsString('50000/100000', $captured);
         $this->assertStringContainsString('50.00%', $captured);
-    }
-
-    public function testLimitNegativeUsesMinLimit(): void
-    {
-        // Negative limit values are clamped to MIN_LIMIT (0.0000001)
-        $captured = '';
-        $bar = new ConsoleProgressBar(-5, [], new CallbackOutput(function (string $t) use (&$captured): void {
-            $captured .= $t;
-        }));
-        $bar->output(-5);
-        // With limit ~0 and position -5, percent is very negative
-        $this->assertStringContainsString('-5', $captured);
-        // Limit cast to int is 0, so position displays as -5/0
-        $this->assertStringContainsString('/0', $captured);
     }
 
     // ====================================================
@@ -199,6 +176,8 @@ class ConsoleProgressBarTest extends TestCase
         // Position 10 with limit 5: percent = 10/5*100 = 200%
         $this->assertStringContainsString('10/5', $captured);
         $this->assertStringContainsString('200.00%', $captured);
+        // Negative estimate is clamped to zero instead of rendering garbage time
+        $this->assertStringContainsString('estimated: now', $captured);
     }
 
     public function testOutputPositionAtLimitTriggersFinishReport(): void
@@ -393,6 +372,19 @@ class ConsoleProgressBarTest extends TestCase
         }));
         $bar->output(3, 'processing item');
         $this->assertStringContainsString('processing item', $captured);
+    }
+
+    public function testMultipleMessagesRepositionCursor(): void
+    {
+        $captured = '';
+        $bar = new ConsoleProgressBar(5, [], new CallbackOutput(function (string $t) use (&$captured): void {
+            $captured .= $t;
+        }));
+        $bar->output(1, 'first');
+        $bar->output(2, 'second');
+
+        // The second message is preceded by a cursor-repositioning escape sequence
+        $this->assertStringContainsString("\033[1L", $captured);
     }
 
     // ====================================================
@@ -667,7 +659,17 @@ class ConsoleProgressBarTest extends TestCase
         $bar->finishReport();
         $this->assertStringContainsString('Start:', $captured);
         $this->assertStringContainsString('Finish:', $captured);
-        $this->assertStringContainsString('Passed elements: 10', $captured);
+        $this->assertStringContainsString('Passed elements: 0', $captured);
+    }
+
+    public function testFinishReportShowsNowWhenNoTimeElapsed(): void
+    {
+        $captured = '';
+        $bar = new ConsoleProgressBar(10, [], new CallbackOutput(function (string $t) use (&$captured): void {
+            $captured .= $t;
+        }));
+        $bar->finishReport();
+        $this->assertStringContainsString('Passed time: now', $captured);
     }
 
     public function testFinishReportWithDisabledFlag(): void
@@ -739,6 +741,27 @@ class ConsoleProgressBarTest extends TestCase
         $this->assertStringContainsString(\sprintf('%05.2F', $percent) . '%', $captured);
     }
 
+    public function testTimeFormattingWithNonZeroDuration(): void
+    {
+        $captured = '';
+        $bar = new ConsoleProgressBar(2, [], new CallbackOutput(function (string $t) use (&$captured): void {
+            $captured .= $t;
+        }));
+
+        // Rewind the start time so the elapsed time spans 1 day + 1 hour + 1 minute + 1 second
+        $reflection = new ReflectionProperty(ConsoleProgressBar::class, 'startTime');
+        $reflection->setValue($bar, \microtime(true) - 90061.0);
+
+        $bar->output(1); // 50%
+
+        $this->assertStringContainsString('passed: 1d 1h 1m', $captured);
+
+        $data = $bar->getProgressData();
+        $this->assertSame(1, $data['passed_time']['days']);
+        $this->assertSame(1, $data['passed_time']['hours']);
+        $this->assertSame(1, $data['passed_time']['minutes']);
+    }
+
     // ====================================================
     // CallbackOutput custom handler
     // ====================================================
@@ -755,6 +778,18 @@ class ConsoleProgressBarTest extends TestCase
 
         $this->assertStringContainsString('[LOG]', $captured);
         $this->assertStringContainsString('1/1', $captured);
+    }
+
+    public function testCallbackOutputWriteln(): void
+    {
+        $captured = '';
+        $output = new CallbackOutput(function (string $text) use (&$captured): void {
+            $captured .= $text;
+        });
+
+        $output->writeln('line');
+
+        $this->assertSame('line' . \PHP_EOL, $captured);
     }
 
     // ====================================================
@@ -812,18 +847,32 @@ class ConsoleProgressBarTest extends TestCase
         $this->assertStringContainsString('[####################]', $captured);
     }
 
+    public function testNegativeProgressBarSizeConfigThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('progressBarSize must be a non-negative integer');
+        new ConsoleProgressBar(5, ['progressBarSize' => -1]);
+    }
+
+    public function testNegativeProgressBarSizeDirectAssignmentThrows(): void
+    {
+        $bar = new ConsoleProgressBar(5);
+        $this->expectException(InvalidArgumentException::class);
+        $bar->progressBarSize = -5;
+    }
+
     /**
      * Critical #1: config injection — internal state keys must be rejected.
      */
     public function testRejectsInternalStateConfigKeys(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         new ConsoleProgressBar(100, ['startTime' => 9999999999]);
     }
 
     public function testRejectsUnknownConfigKeys(): void
     {
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         new ConsoleProgressBar(100, ['nonExistentKey' => 'value']);
     }
 
@@ -832,12 +881,17 @@ class ConsoleProgressBarTest extends TestCase
      */
     public function testEmptySpinnerCharsDoesNotThrow(): void
     {
-        $progressBar = new ConsoleProgressBar(2, ['spinnerChars' => []]);
-        $this->expectOutputRegex('/.*/');
-        ob_start();
+        $captured = '';
+        $progressBar = new ConsoleProgressBar(2, [
+            'spinnerChars' => [],
+        ], new CallbackOutput(function (string $t) use (&$captured): void {
+            $captured .= $t;
+        }));
         $progressBar->output(1);
-        ob_end_clean();
-        $this->assertTrue(true);
+
+        // Spinner element is skipped, so the bar is the first element
+        $this->assertStringStartsWith('[', $captured);
+        $this->assertStringContainsString('1/2', $captured);
     }
 
     /**
@@ -846,11 +900,46 @@ class ConsoleProgressBarTest extends TestCase
     public function testFinishReportShowsProcessedElements(): void
     {
         $progressBar = new ConsoleProgressBar(100);
-        ob_start();
+        \ob_start();
         $progressBar->output(42);
         $progressBar->finishReport();
-        $output = ob_get_clean();
-        $this->assertStringContainsString("Passed elements: 42", $output);
+        $output = (string) \ob_get_clean();
+        $this->assertStringContainsString('Passed elements: 42', $output);
+    }
+
+    public function testInvalidConfigValueTypeThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Config key "showBar" must be of type bool');
+        new ConsoleProgressBar(5, ['showBar' => 'yes']);
+    }
+
+    public function testInvalidConfigListValueThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Config key "orderElements" must be of type list<string>');
+        new ConsoleProgressBar(5, ['orderElements' => ['percent' => 'x']]);
+    }
+
+    public function testInvalidConfigListElementThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('must be a list of strings, got a non-string element');
+        new ConsoleProgressBar(5, ['orderElements' => ['percent', 123]]);
+    }
+
+    public function testInvalidConfigStringValueThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Config key "separator" must be of type string');
+        new ConsoleProgressBar(5, ['separator' => 123]);
+    }
+
+    public function testInvalidConfigIntValueThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Config key "progressBarSize" must be of type int');
+        new ConsoleProgressBar(5, ['progressBarSize' => 'big']);
     }
 
     /**
@@ -858,13 +947,13 @@ class ConsoleProgressBarTest extends TestCase
      */
     public function testLimitZeroThrows(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new ConsoleProgressBar(0);
     }
 
     public function testLimitNegativeThrows(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new ConsoleProgressBar(-5);
     }
 }

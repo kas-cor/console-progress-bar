@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace KasCor;
 
+use InvalidArgumentException;
 use KasCor\Output\ConsoleOutput;
 use KasCor\Output\OutputInterface;
 use RuntimeException;
@@ -18,28 +19,6 @@ use RuntimeException;
  */
 class ConsoleProgressBar
 {
-    /** Minimum limit value to prevent division by zero */
-    private const float MIN_LIMIT = 0.0000001;
-
-    /** Allowed configuration keys (defends against arbitrary property injection via config) */
-    private const ALLOWED_CONFIG_KEYS = [
-        'showTimeMessage',
-        'showBar',
-        'showCurrentPosition',
-        'showSpinner',
-        'showPercent',
-        'showPassedTime',
-        'showEstimatedTime',
-        'showFinishReport',
-        'timeMessageFormat',
-        'progressBarSize',
-        'progressBarFullChar',
-        'progressBarEmptyChar',
-        'spinnerChars',
-        'separator',
-        'orderElements',
-    ];
-
     /** Seconds in one minute */
     private const int SECONDS_IN_MINUTE = 60;
 
@@ -72,7 +51,7 @@ class ConsoleProgressBar
     public int $progressBarSize = 50 {
         set(int $value) {
             if ($value < 0) {
-                throw new \InvalidArgumentException('progressBarSize must be a non-negative integer, got ' . $value);
+                throw new InvalidArgumentException('progressBarSize must be a non-negative integer, got ' . $value);
             }
             $this->progressBarSize = $value;
         }
@@ -121,29 +100,45 @@ class ConsoleProgressBar
     public array $orderElements = ['spinner', 'progress_bar', 'current_position', 'percent', 'passed_time', 'estimated_time'];
 
     /**
-     * @param int                  $limit  Total number of items to process
+     * @param int                  $limit  Total number of items to process (must be positive)
      * @param array<string, mixed> $config Optional configuration overrides (property => value pairs)
      * @param OutputInterface      $output Custom output handler; defaults to ConsoleOutput
      *
-     * @throws RuntimeException If config contains an unknown property key
+     * @throws InvalidArgumentException If the limit is not positive or a config value has the wrong type
+     * @throws RuntimeException         If config contains an unknown property key
      */
     public function __construct(
         int $limit,
         array $config = [],
         private OutputInterface $output = new ConsoleOutput(),
     ) {
-        if ($config) {
-            foreach ($config as $key => $value) {
-                if (in_array($key, self::ALLOWED_CONFIG_KEYS, true)) {
-                    $this->$key = $value;
-                } else {
-                    throw new RuntimeException('Config key "' . $key . '" not found!');
-                }
-            }
+        if ($limit <= 0) {
+            throw new InvalidArgumentException('Limit must be a positive integer, got ' . $limit);
         }
 
-        $this->limit = $limit > 0 ? (float) $limit : self::MIN_LIMIT;
+        $this->limit = (float) $limit;
         $this->startTime = \microtime(true);
+
+        foreach ($config as $key => $value) {
+            match ($key) {
+                'showTimeMessage' => $this->showTimeMessage = $this->assertConfigBool($key, $value),
+                'showBar' => $this->showBar = $this->assertConfigBool($key, $value),
+                'showCurrentPosition' => $this->showCurrentPosition = $this->assertConfigBool($key, $value),
+                'showSpinner' => $this->showSpinner = $this->assertConfigBool($key, $value),
+                'showPercent' => $this->showPercent = $this->assertConfigBool($key, $value),
+                'showPassedTime' => $this->showPassedTime = $this->assertConfigBool($key, $value),
+                'showEstimatedTime' => $this->showEstimatedTime = $this->assertConfigBool($key, $value),
+                'showFinishReport' => $this->showFinishReport = $this->assertConfigBool($key, $value),
+                'timeMessageFormat' => $this->timeMessageFormat = $this->assertConfigString($key, $value),
+                'progressBarSize' => $this->progressBarSize = $this->assertConfigInt($key, $value),
+                'progressBarFullChar' => $this->progressBarFullChar = $this->assertConfigString($key, $value),
+                'progressBarEmptyChar' => $this->progressBarEmptyChar = $this->assertConfigString($key, $value),
+                'spinnerChars' => $this->spinnerChars = $this->assertConfigStringList($key, $value),
+                'separator' => $this->separator = $this->assertConfigString($key, $value),
+                'orderElements' => $this->orderElements = $this->assertConfigStringList($key, $value),
+                default => throw new RuntimeException('Config key "' . $key . '" not found!'),
+            };
+        }
     }
 
     /**
@@ -166,6 +161,7 @@ class ConsoleProgressBar
             }
 
             $msg = '';
+
             if ($this->showTimeMessage) {
                 $msg .= \date($this->timeMessageFormat) . $this->separator;
             }
@@ -185,6 +181,7 @@ class ConsoleProgressBar
 
         if ($this->currentPosition === (int) $this->limit) {
             $this->finishTime = $this->finishTime ?? \microtime(true);
+
             if ($this->showFinishReport) {
                 $this->output->write(\str_repeat(' ', $this->lastStringLength) . "\r");
                 $this->output->write($this->getReportString() . \PHP_EOL);
@@ -210,7 +207,8 @@ class ConsoleProgressBar
     {
         $percent = $this->currentPosition / $this->limit * 100;
         $progressTime = \microtime(true) - $this->startTime;
-        $estimatedTime = $percent > 0 ? $progressTime / $percent * (100 - $percent) : 0;
+        // Clamp to 0 so a position beyond the limit (percent > 100) cannot produce a negative estimate
+        $estimatedTime = \max(0.0, $percent > 0 ? $progressTime / $percent * (100 - $percent) : 0.0);
 
         return [
             'limit' => $this->limit,
@@ -271,7 +269,7 @@ class ConsoleProgressBar
         /** @var array<string, string> $output */
         $output = [];
 
-        if ($this->showSpinner) {
+        if ($this->showSpinner && $this->spinnerChars !== []) {
             $spinner = ++$this->spinnerCounter % \count($this->spinnerChars);
             $output['spinner'] = $this->spinnerChars[$spinner];
         }
@@ -350,7 +348,7 @@ class ConsoleProgressBar
         $result .= 'Start: ' . \date($this->timeMessageFormat, (int) $this->startTime) . \PHP_EOL;
         $result .= 'Finish: ' . \date($this->timeMessageFormat, (int) ($this->finishTime ?? \microtime(true))) . \PHP_EOL;
         $result .= 'Passed elements: ' . $this->currentPosition . \PHP_EOL;
-        $result .= 'Passed time: ' . $this->getTimeString($progress['passed_time']) . \PHP_EOL;
+        $result .= 'Passed time: ' . ($this->getTimeString($progress['passed_time']) ?: 'now') . \PHP_EOL;
 
         return $result;
     }
@@ -378,5 +376,81 @@ class ConsoleProgressBar
             'minutes' => $minutes,
             'seconds' => $seconds,
         ];
+    }
+
+    /**
+     * Validate that a config value is a bool.
+     *
+     * @param string $key   Config key (used in the error message)
+     * @param mixed  $value Value to validate
+     *
+     * @throws InvalidArgumentException When the value is not a bool
+     */
+    private function assertConfigBool(string $key, mixed $value): bool
+    {
+        if (!\is_bool($value)) {
+            throw new InvalidArgumentException('Config key "' . $key . '" must be of type bool, ' . \get_debug_type($value) . ' given');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Validate that a config value is a string.
+     *
+     * @param string $key   Config key (used in the error message)
+     * @param mixed  $value Value to validate
+     *
+     * @throws InvalidArgumentException When the value is not a string
+     */
+    private function assertConfigString(string $key, mixed $value): string
+    {
+        if (!\is_string($value)) {
+            throw new InvalidArgumentException('Config key "' . $key . '" must be of type string, ' . \get_debug_type($value) . ' given');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Validate that a config value is an int.
+     *
+     * @param string $key   Config key (used in the error message)
+     * @param mixed  $value Value to validate
+     *
+     * @throws InvalidArgumentException When the value is not an int
+     */
+    private function assertConfigInt(string $key, mixed $value): int
+    {
+        if (!\is_int($value)) {
+            throw new InvalidArgumentException('Config key "' . $key . '" must be of type int, ' . \get_debug_type($value) . ' given');
+        }
+
+        return $value;
+    }
+
+    /**
+     * Validate that a config value is a list of strings.
+     *
+     * @param string $key   Config key (used in the error message)
+     * @param mixed  $value Value to validate
+     *
+     * @return list<string> The validated list
+     *
+     * @throws InvalidArgumentException When the value is not a list of strings
+     */
+    private function assertConfigStringList(string $key, mixed $value): array
+    {
+        if (!\is_array($value) || !\array_is_list($value)) {
+            throw new InvalidArgumentException('Config key "' . $key . '" must be of type list<string>, ' . \get_debug_type($value) . ' given');
+        }
+
+        foreach ($value as $item) {
+            if (!\is_string($item)) {
+                throw new InvalidArgumentException('Config key "' . $key . '" must be a list of strings, got a non-string element');
+            }
+        }
+
+        return $value;
     }
 }

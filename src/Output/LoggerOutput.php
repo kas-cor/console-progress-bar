@@ -43,13 +43,17 @@ class LoggerOutput implements OutputInterface
      *
      * Note: Inline progress updates (with carriage returns) are logged as
      * separate log entries, which may be verbose for PSR-3 loggers.
+     * ANSI escape sequences (cursor positioning, clearing) are stripped so
+     * they never end up in the log.
      *
      * @param string $text The progress text to log
      */
     #[Override]
     public function write(string $text): void
     {
+        $text = \preg_replace('/\033\[[0-9;]*[A-Za-z]/', '', $text) ?? '';
         $text = \trim($text);
+
         if ($text !== '') {
             $this->logger->log($this->level, $text);
         }
@@ -58,11 +62,14 @@ class LoggerOutput implements OutputInterface
     /**
      * Log progress text at the configured log level (with semantic newline).
      *
+     * ANSI escape sequences are stripped, matching {@see write()}.
+     *
      * @param string $text The progress text to log (empty string logs just an empty message)
      */
     #[Override]
     public function writeln(string $text = ''): void
     {
+        $text = \preg_replace('/\033\[[0-9;]*[A-Za-z]/', '', $text) ?? '';
         $this->logger->log($this->level, $text);
     }
 }

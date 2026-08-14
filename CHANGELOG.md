@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `$limit <= 0` now throws `\InvalidArgumentException` instead of silently clamping to `MIN_LIMIT`
+- Empty `spinnerChars` no longer causes `DivisionByZeroError` (spinner element is skipped)
+- Config values are now type-checked, throwing a clear `\InvalidArgumentException` instead of a `TypeError`
+- Negative estimated time (position beyond the limit) is clamped to zero
+- `LoggerOutput::write()` strips ANSI escape sequences so cursor-positioning writes are not logged
+
 ## [0.1.0] - 2026-07-17
 
 ### Added

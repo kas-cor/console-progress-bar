@@ -147,13 +147,17 @@ $output = new LoggerOutput($logger, \Psr\Log\LogLevel::DEBUG);
 
 ### Без параметров
 
+`output()` при вызове без аргумента позиции сохраняет предыдущую позицию — сама по себе она не продвигается. Для продвижения передавайте позицию явно:
+
 ```php
 $progressBar = new ConsoleProgressBar(5);
-for ($i = 1; $i <= 5; $i++) {
-    $progressBar->output(); // использует внутренний счётчик позиции
+foreach (range(1, 5) as $i) {
+    $progressBar->output($i);
     sleep(1);
 }
 ```
+
+Чтобы вывести сообщение без изменения позиции, используйте `output(null, 'message')`.
 
 ### Ручной финальный отчёт
 
